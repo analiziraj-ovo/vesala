@@ -244,6 +244,17 @@ button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
   </section>
 
   <section id="adminView" hidden>
+    <div class="panel" id="ghPanel" hidden>
+      <h2>Чување на GitHub-у</h2>
+      <div class="src" id="ghInfo">Нове речи се чувају у фајлу words.json у репозиторијуму. За чување треба твој GitHub кључ (fine-grained token са дозволом Contents: Read and write само за овај репозиторијум). Кључ остаје само у овом прегледачу.</div>
+      <form class="form" id="ghForm" autocomplete="off" style="grid-template-columns:1fr auto auto">
+        <div class="field"><label for="fToken">GitHub кључ</label><input id="fToken" type="password" placeholder="github_pat_..."></div>
+        <button class="btn" type="submit" id="ghSaveKey">Сачувај кључ</button>
+        <button class="btn ghost" type="button" id="ghForget">Заборави</button>
+      </form>
+      <div class="formmsg" id="ghMsg" role="status"></div>
+    </div>
+
     <div class="panel" id="addPanel">
       <h2>Додај нову реч</h2>
       <form class="form" id="addForm" autocomplete="off">
@@ -294,7 +305,7 @@ const DEFAULT_WORDS = [
   ["ИДИОСИНКРАЗИЈА","учена реч",5],["АМБИВАЛЕНЦИЈА","осећање",5],["ПРОКРАСТИНАЦИЈА","навика",5],["ЕПИСТЕМОЛОГИЈА","филозофија",5],["ПАЛИНДРОМ","језик",5],["ХИПОХОНДАР","особа",5],["КАЛЕИДОСКОП","играчка",5],["ПАРАФРАЗА","језик",5],["КОНТРАПУНКТ","музика",5],["ЕЛОКВЕНЦИЈА","говор",5],["ОКСИМОРОН","стилска фигура",5],["ФАТАМОРГАНА","пустиња",5],["ХЕРМЕНЕУТИКА","филозофија",5],["ЕУФЕМИЗАМ","језик",5],["АРХИПЕЛАГ","географија",5],["СИНЕСТЕЗИЈА","чула",5],["МЕТЕМПСИХОЗА","веровање",5],["ПРЕСТИДИГИТАТОР","занимање",5],["ТРАНСЦЕНДЕНЦИЈА","филозофија",5],["ЋИЋИБАБА","инсект",5],
 ].map(([word, cat, level]) => ({word, cat, level}));
 let WORDS = DEFAULT_WORDS;
-let fromDb = false;
+let fromDb = false; // true када речи долазе из сталног складишта (claude.ai база или words.json)
 
 const LATIN = {a:"А",b:"Б",v:"В",g:"Г",d:"Д","đ":"Ђ",e:"Е","ž":"Ж",z:"З",i:"И",j:"Ј",k:"К",l:"Л",q:"Љ",m:"М",n:"Н",w:"Њ",
   o:"О",p:"П",r:"Р",s:"С",t:"Т","ć":"Ћ",u:"У",f:"Ф",h:"Х",c:"Ц","č":"Ч",x:"Џ","š":"Ш"};
@@ -440,7 +451,88 @@ $("tabGame").onclick = () => { showTab(false); history.replaceState(null, "", lo
 $("tabAdmin").onclick = () => { showTab(true); history.replaceState(null, "", "#admin"); };
 
 // ---------- Админ ----------
-let filterLevel = 0, canWrite = true, db = null;
+let filterLevel = 0, canWrite = true, db = null, mode = "none";
+
+// ---------- GitHub складиште (words.json) ----------
+const REPO = location.hostname.endsWith(".github.io") && location.pathname.split("/")[1]
+  ? location.hostname.split(".")[0] + "/" + location.pathname.split("/")[1]
+  : "analiziraj-ovo/vesala";
+const GH_API = "https://api.github.com/repos/" + REPO + "/contents/words.json";
+let ghToken = "";
+try { ghToken = localStorage.getItem("vesala-gh-token") || ""; } catch (e) {}
+
+function cleanList(list){
+  return (Array.isArray(list) ? list : [])
+    .map(x => ({word: String(x.word || "").toLocaleUpperCase("sr"), cat: String(x.cat || ""), level: Math.min(5, Math.max(1, +x.level || 1))}))
+    .filter(w => w.word);
+}
+function b64ToText(b64){ const bin = atob(b64.replace(/\s/g, "")); return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))); }
+function textToB64(t){ const bytes = new TextEncoder().encode(t); let bin = ""; for (const b of bytes) bin += String.fromCharCode(b); return btoa(bin); }
+function ghHeaders(){ return {Authorization: "Bearer " + ghToken, Accept: "application/vnd.github+json"}; }
+
+async function ghRead(){
+  const r = await fetch(GH_API + "?ref=main&t=" + Date.now(), {headers: ghHeaders(), cache: "no-store"});
+  if (r.status === 404) return {list: [], sha: undefined};
+  if (!r.ok) throw r.status;
+  const j = await r.json();
+  return {list: cleanList(JSON.parse(b64ToText(j.content))), sha: j.sha};
+}
+// Чита тренутни words.json, примени измену и сачува нову верзију (commit на main).
+async function ghMutate(fn, message){
+  const {list, sha} = await ghRead();
+  const next = fn(list);
+  const body = "[\n" + next.map(w => "  " + JSON.stringify({word: w.word, cat: w.cat, level: w.level})).join(",\n") + "\n]\n";
+  const r = await fetch(GH_API, {method: "PUT", headers: ghHeaders(), body: JSON.stringify({message, content: textToB64(body), sha, branch: "main"})});
+  if (!r.ok) throw r.status;
+  setWords(next, true);
+}
+function ghError(code){
+  if (code === 401) return "GitHub кључ није исправан или је истекао.";
+  if (code === 403 || code === 404) return "Кључ нема дозволу да мења овај репозиторијум (треба Contents: Read and write).";
+  if (code === 409 || code === 422) return "Неко је истовремено мењао речи. Покушај поново.";
+  return "Чување није успело. Провери интернет везу и покушај поново.";
+}
+function setWords(list, stored){
+  if (list.length) { WORDS = list; fromDb = stored; } else { WORDS = DEFAULT_WORDS; fromDb = false; }
+  if (!$("adminView").hidden) renderAdmin();
+  if (!word || !WORDS.some(w => w.word === word)) { if (!guessed.size) newGame(); }
+}
+async function loadGithubWords(){
+  try {
+    if (ghToken) { const {list} = await ghRead(); setWords(list, true); return; }
+  } catch (e) { $("ghMsg").textContent = ghError(e); $("ghMsg").className = "formmsg err"; }
+  try {
+    const r = await fetch("words.json?t=" + Date.now(), {cache: "no-store"});
+    if (r.ok) setWords(cleanList(await r.json()), true);
+  } catch (e) {}
+}
+function ghUi(){
+  canWrite = !!ghToken;
+  $("fToken").value = ghToken ? "••••••••" : "";
+  $("ghForget").hidden = !ghToken;
+  $("addPanel").hidden = !ghToken;
+  if (!$("adminView").hidden) renderAdmin();
+}
+$("ghForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const v = $("fToken").value.trim(), m = $("ghMsg");
+  if (!v || v.startsWith("•")) { m.textContent = "Налепи GitHub кључ."; m.className = "formmsg err"; return; }
+  const old = ghToken; ghToken = v;
+  try {
+    const r = await fetch("https://api.github.com/repos/" + REPO, {headers: ghHeaders()});
+    if (!r.ok) throw r.status;
+    const j = await r.json();
+    if (!j.permissions || !j.permissions.push) throw 403;
+    try { localStorage.setItem("vesala-gh-token", v); } catch (_) {}
+    m.textContent = "Кључ је сачуван. Сада можеш да додајеш и бришеш речи."; m.className = "formmsg ok";
+    ghUi(); loadGithubWords();
+  } catch (err) { ghToken = old; m.textContent = ghError(err); m.className = "formmsg err"; }
+});
+$("ghForget").onclick = () => {
+  ghToken = ""; try { localStorage.removeItem("vesala-gh-token"); } catch (_) {}
+  $("ghMsg").textContent = "Кључ је обрисан из овог прегледача."; $("ghMsg").className = "formmsg"; ghUi();
+};
+$("fToken").addEventListener("focus", e => { if (e.target.value.startsWith("•")) e.target.value = ""; });
 const fl = $("filters");
 for (const n of [0,1,2,3,4,5]) {
   const b = document.createElement("button");
@@ -481,21 +573,24 @@ function renderAdmin(){
     const n = [...w.word].filter(c => ALPHABET.includes(c)).length;
     tr.innerHTML = `<td class="w"></td><td></td><td class="n">${w.level}</td><td class="n">${n}</td><td></td>`;
     tr.children[0].textContent = w.word; tr.children[1].textContent = w.cat;
-    if (fromDb && canWrite && w.id) {
+    if (fromDb && canWrite && (mode === "github" || w.id)) {
       const d = document.createElement("button");
       d.className = "del"; d.type = "button"; d.textContent = "Обриши";
       d.onclick = async () => {
         if (!d.classList.contains("confirm")) { d.classList.add("confirm"); d.textContent = "Сигурно?"; return; }
         d.disabled = true;
-        try { await db.collection("words").doc(w.id).delete(); }
-        catch (e) { d.disabled = false; d.textContent = "Грешка"; }
+        try {
+          if (mode === "github") await ghMutate(l => l.filter(x => x.word !== w.word), "Обрисана реч " + w.word);
+          else await db.collection("words").doc(w.id).delete();
+        }
+        catch (e) { d.disabled = false; d.textContent = "Грешка"; if (mode === "github") { $("fMsg").textContent = ghError(e); $("fMsg").className = "formmsg err"; } }
       };
       tr.children[4].appendChild(d);
     }
     tb.appendChild(tr);
   }
   if (!list.length) tb.innerHTML = '<tr><td colspan="5" class="src">Нема речи за овај избор.</td></tr>';
-  $("srcNote").textContent = fromDb ? "" : "Приказан је почетни списак. Чување нових речи ради када је страница отворена на claude.ai.";
+  $("srcNote").textContent = fromDb ? (mode === "github" && !ghToken ? "Нове речи се појављују у игри око минут после чувања." : "") : "Приказан је почетни списак.";
 }
 
 $("addForm").addEventListener("submit", async e => {
@@ -508,14 +603,15 @@ $("addForm").addEventListener("submit", async e => {
   if (!cat) { m.textContent = "Упиши појам, то је наговештај у игри."; m.className = "formmsg err"; return; }
   const dup = WORDS.find(w => w.word === word);
   if (dup) { m.textContent = word + " већ постоји на нивоу " + dup.level + "."; m.className = "formmsg err"; return; }
-  if (!db) { m.textContent = "Чување није доступно у овом прегледу."; m.className = "formmsg err"; return; }
+  if (mode === "none" || (mode === "github" && !ghToken)) { m.textContent = "Чување није доступно у овом прегледу."; m.className = "formmsg err"; return; }
   $("fAdd").disabled = true;
   try {
-    await db.collection("words").add({word, cat, level: lvl, added: new Date().toISOString()});
+    if (mode === "github") await ghMutate(l => l.some(x => x.word === word) ? l : l.concat({word, cat, level: lvl}), "Додата реч " + word);
+    else await db.collection("words").add({word, cat, level: lvl, added: new Date().toISOString()});
     m.textContent = "Додато: " + word + " (ниво " + lvl + ")."; m.className = "formmsg ok";
     $("fWord").value = ""; $("fWord").focus();
   } catch (err) {
-    m.textContent = err && err.code === "quota_exceeded" ? "База је пуна, обриши неке речи." : "Реч није сачувана. Можда немаш право уређивања ове игре.";
+    m.textContent = mode === "github" ? ghError(err) : err && err.code === "quota_exceeded" ? "База је пуна, обриши неке речи." : "Реч није сачувана. Можда немаш право уређивања ове игре.";
     m.className = "formmsg err";
   }
   $("fAdd").disabled = false;
@@ -525,7 +621,13 @@ if (location.hash === "#admin") showTab(true);
 
 (async () => {
   db = window.claude ? await window.claude.use("db").catch(() => null) : null;
-  if (!db) { renderAdmin(); return; }
+  if (!db) {
+    mode = location.protocol.startsWith("http") ? "github" : "none";
+    if (mode === "github") { $("ghPanel").hidden = false; ghUi(); loadGithubWords(); }
+    else renderAdmin();
+    return;
+  }
+  mode = "db";
   const user = await window.claude.use("user").catch(() => null);
   const cw = user ? user.canEdit() : null;
   if (cw === false) { canWrite = false; $("addPanel").hidden = true; }
