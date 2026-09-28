@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="sr-Cyrl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Вешала на ћирилици</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=PT+Sans:wght@400;700&display=swap">
+<style>
+:root{
+  --paper:#fbfcf8;
+  --grid:#d6e2ee;
+  --margin:#e08a8a;
+  --ink:#1f3a8a;
+  --ink-soft:#5a6fa8;
+  --text:#1d2433;
+  --muted:#5f6878;
+  --key:#ffffff;
+  --key-border:#c9d3e0;
+  --hit:#2f7d4f;
+  --miss:#b83a3a;
+  --ground:#eef2f6;
+  --focus:#1f3a8a;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#1b2230;
+    --grid:#2a3446;
+    --margin:#8a4a50;
+    --ink:#9fb8ff;
+    --ink-soft:#7d91c4;
+    --text:#e6eaf2;
+    --muted:#9aa4b6;
+    --key:#232c3d;
+    --key-border:#39455c;
+    --hit:#6fcf97;
+    --miss:#f08a8a;
+    --ground:#121824;
+    --focus:#9fb8ff;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#1b2230;
+  --grid:#2a3446;
+  --margin:#8a4a50;
+  --ink:#9fb8ff;
+  --ink-soft:#7d91c4;
+  --text:#e6eaf2;
+  --muted:#9aa4b6;
+  --key:#232c3d;
+  --key-border:#39455c;
+  --hit:#6fcf97;
+  --miss:#f08a8a;
+  --ground:#121824;
+  --focus:#9fb8ff;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{
+  background:var(--ground);
+  color:var(--text);
+  font-family:"PT Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:16px;
+  padding:24px 16px 40px;
+}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{
+  font-family:"Caveat","Comic Sans MS",cursive;
+  font-weight:700;font-size:clamp(2.6rem,7vw,3.6rem);
+  line-height:.9;margin:0;color:var(--ink);
+}
+.score{display:flex;gap:16px;font-variant-numeric:tabular-nums;color:var(--muted);font-size:.95rem}
+.score b{color:var(--text);font-size:1.1rem}
+
+.levels{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.levels .lbl{flex-basis:100%;font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.lvl{
+  font:inherit;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  flex:1 1 0;min-width:0;max-width:110px;padding:6px 4px;border-radius:8px;
+  background:var(--key);color:var(--text);border:1.5px solid var(--key-border);
+}
+.lvl .n{font-family:"Caveat",cursive;font-size:1.6rem;font-weight:700;line-height:1}
+.lvl .t{font-size:.72rem;color:var(--muted)}
+.lvl[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.lvl[aria-pressed="true"] .t{color:var(--paper);opacity:.85}
+
+.sheet{
+  position:relative;
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:22px 22px;
+  border-radius:4px;
+  box-shadow:0 1px 2px rgba(0,0,0,.08),0 8px 24px rgba(20,40,80,.08);
+  padding:20px 20px 20px 48px;
+  display:grid;grid-template-columns:minmax(0,240px) 1fr;gap:20px;align-items:center;
+}
+.sheet::before{content:"";position:absolute;top:0;bottom:0;left:34px;width:2px;background:var(--margin);opacity:.8}
+@media (max-width:620px){
+  .sheet{grid-template-columns:1fr;padding-left:40px}
+  .sheet::before{left:26px}
+  .drawing{max-width:200px;margin:0 auto}
+}
+.drawing svg{width:100%;height:auto;display:block}
+.drawing path,.drawing line,.drawing circle{
+  fill:none;stroke:var(--ink);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;
+}
+.part{opacity:0}
+.part.on{opacity:1;stroke-dasharray:var(--len);stroke-dashoffset:var(--len);animation:draw .45s ease-out forwards}
+.part.pre{opacity:.35;stroke-dasharray:6 7}
+.part.solid{opacity:1}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.part.on{animation:none;stroke-dashoffset:0}}
+
+.board{display:flex;flex-direction:column;gap:14px;min-width:0}
+.hint{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hint b{color:var(--ink);letter-spacing:.04em}
+.word{display:flex;gap:.25em;font-family:"Caveat",cursive;font-weight:700;font-size:2.8rem}
+.slot{
+  width:1.3em;text-align:center;
+  line-height:1.1;flex:0 1 1.3em;min-width:0;
+  color:var(--ink);border-bottom:.07em solid var(--ink-soft);
+}
+.slot.missed{color:var(--miss)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;font-variant-numeric:tabular-nums;color:var(--muted)}
+.meta .wrong{font-family:"Caveat",cursive;font-size:1.5rem;color:var(--miss);letter-spacing:.1em}
+.msg{min-height:2.2rem;font-family:"Caveat",cursive;font-size:1.9rem;font-weight:700;line-height:1.1}
+.msg.win{color:var(--hit)}
+.msg.lose{color:var(--miss)}
+
+.keys{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:6px}
+@media (max-width:480px){.keys{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.key{
+  font:inherit;font-weight:700;font-size:1.15rem;cursor:pointer;
+  padding:10px 0;border-radius:6px;
+  background:var(--key);color:var(--text);border:1.5px solid var(--key-border);
+}
+.key:hover:not(:disabled){border-color:var(--ink)}
+.key:disabled{cursor:default}
+.key.hit{background:var(--hit);border-color:var(--hit);color:var(--paper)}
+.key.miss{background:transparent;color:var(--miss);border-color:transparent;text-decoration:line-through;opacity:.7}
+.key.idle:disabled{opacity:.45}
+
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{
+  font:inherit;font-weight:700;cursor:pointer;padding:10px 18px;border-radius:8px;
+  background:var(--ink);color:var(--paper);border:0;
+}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.note{font-size:.85rem;color:var(--muted)}
+
+.tabs{display:flex;gap:4px;border-bottom:1.5px solid var(--key-border)}
+.tab{font:inherit;font-weight:700;cursor:pointer;padding:8px 16px;background:transparent;color:var(--muted);border:0;border-bottom:3px solid transparent;margin-bottom:-1.5px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+#gameView,#adminView{display:flex;flex-direction:column;gap:18px}
+.panel{background:var(--paper);border:1.5px solid var(--key-border);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.panel h2{margin:0;font-size:1.05rem}
+.form{display:grid;grid-template-columns:2fr 2fr 1fr auto;gap:10px;align-items:end}
+@media (max-width:620px){.form{grid-template-columns:1fr 1fr}.form .btn{grid-column:1/-1}}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select{font:inherit;padding:9px 10px;border-radius:6px;border:1.5px solid var(--key-border);background:var(--key);color:var(--text);min-width:0;width:100%}
+.field input:focus,.field select:focus{outline:2px solid var(--focus);outline-offset:1px}
+.formmsg{min-height:1.2em;font-size:.9rem}
+.formmsg.ok{color:var(--hit)} .formmsg.err{color:var(--miss)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font:inherit;font-size:.85rem;cursor:pointer;padding:5px 12px;border-radius:999px;border:1.5px solid var(--key-border);background:var(--key);color:var(--text);font-variant-numeric:tabular-nums}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.filters input{font:inherit;padding:6px 10px;border-radius:6px;border:1.5px solid var(--key-border);background:var(--key);color:var(--text);flex:1 1 160px;min-width:0}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.95rem}
+th{text-align:left;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700;padding:6px 8px;border-bottom:1.5px solid var(--key-border)}
+td{padding:7px 8px;border-bottom:1px solid var(--grid);vertical-align:middle}
+td.w{font-weight:700;letter-spacing:.04em;color:var(--ink)}
+td.n{font-variant-numeric:tabular-nums;text-align:center}
+.del{font:inherit;font-size:.85rem;cursor:pointer;background:transparent;border:1px solid transparent;color:var(--miss);padding:3px 8px;border-radius:6px}
+.del:hover{border-color:var(--miss)}
+.del.confirm{background:var(--miss);color:var(--paper)}
+.src{font-size:.85rem;color:var(--muted)}
+button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<div class="wrap" lang="sr-Cyrl">
+  <header>
+    <h1>Вешала</h1>
+    <div class="score" aria-live="polite">
+      <span>Победе <b id="sWin">0</b></span>
+      <span>Порази <b id="sLose">0</b></span>
+      <span>Низ <b id="sStreak">0</b></span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" id="tabGame" role="tab" aria-selected="true">Игра</button>
+    <button class="tab" id="tabAdmin" role="tab" aria-selected="false">Админ</button>
+  </nav>
+
+  <section id="gameView">
+  <div class="levels" role="group" aria-label="Тежина">
+    <span class="lbl">Тежина</span>
+  </div>
+
+  <main class="sheet">
+    <div class="drawing" aria-hidden="true">
+      <svg viewBox="0 0 200 220">
+        <line class="part" data-i="0" x1="15" y1="205" x2="125" y2="205"/>
+        <line class="part" data-i="1" x1="45" y1="205" x2="45" y2="18"/>
+        <path class="part" data-i="2" d="M45 18 L140 18 M45 50 L77 18"/>
+        <line class="part" data-i="3" x1="140" y1="18" x2="140" y2="48"/>
+        <circle class="part" data-i="4" cx="140" cy="66" r="18"/>
+        <line class="part" data-i="5" x1="140" y1="84" x2="140" y2="142"/>
+        <line class="part" data-i="6" x1="140" y1="98" x2="114" y2="124"/>
+        <line class="part" data-i="7" x1="140" y1="98" x2="166" y2="124"/>
+        <line class="part" data-i="8" x1="140" y1="142" x2="118" y2="180"/>
+        <line class="part" data-i="9" x1="140" y1="142" x2="162" y2="180"/>
+      </svg>
+    </div>
+    <div class="board">
+      <div class="hint">Појам: <b id="cat"></b> · <span id="len"></span></div>
+      <div class="word" id="word" aria-live="polite"></div>
+      <div class="meta">
+        <span>Грешке <b id="errs">0</b> / <b id="max">10</b></span>
+        <span class="wrong" id="wrong"></span>
+      </div>
+      <div class="msg" id="msg" role="status"></div>
+    </div>
+  </main>
+
+  <div class="keys" id="keys"></div>
+
+  <div class="actions">
+    <button class="btn" id="next">Нова реч</button>
+    <button class="btn ghost" id="reveal">Предајем се</button>
+    <span class="note">Можеш да куцаш и на тастатури, ћирилицом или латиницом (č, ć, š, ž, đ, lj=q, nj=w, dž=x).</span>
+  </div>
+  </section>
+
+  <section id="adminView" hidden>
+    <div class="panel" id="addPanel">
+      <h2>Додај нову реч</h2>
+      <form class="form" id="addForm" autocomplete="off">
+        <div class="field"><label for="fWord">Реч</label><input id="fWord" placeholder="нпр. ЛИВАДА" maxlength="30"></div>
+        <div class="field"><label for="fCat">Појам (наговештај)</label><input id="fCat" placeholder="нпр. природа" maxlength="30"></div>
+        <div class="field"><label for="fLevel">Тежина</label>
+          <select id="fLevel"><option value="1">1 лако</option><option value="2">2 лакше</option><option value="3" selected>3 средње</option><option value="4">4 теже</option><option value="5">5 тешко</option></select></div>
+        <button class="btn" type="submit" id="fAdd">Додај</button>
+      </form>
+      <div class="formmsg" id="fMsg" role="status"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Све речи <span class="src" id="total"></span></h2>
+      <div class="filters" id="filters">
+        <input id="fSearch" type="search" placeholder="Претрага речи или појма">
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Реч</th><th>Појам</th><th style="text-align:center">Тежина</th><th style="text-align:center">Слова</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="src" id="srcNote"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const ALPHABET = "АБВГДЂЕЖЗИЈКЛЉМНЊОПРСТЋУФХЦЧЏШ".split("");
+
+// Тежина: 1 кратке свакодневне речи … 5 ретке и учене речи.
+// Што је тежи ниво, мање је грешака дозвољено (део вешала је унапред нацртан).
+const LEVELS = {
+  1:{name:"лако", lives:10},
+  2:{name:"лакше", lives:9},
+  3:{name:"средње", lives:8},
+  4:{name:"теже", lives:7},
+  5:{name:"тешко", lives:6},
+};
+
+// Почетни списак: користи се само док база речи није доступна или је празна.
+const DEFAULT_WORDS = [
+  ["КУЋА","дом",1],["МАЧКА","животиња",1],["ПАС","животиња",1],["ЛОПТА","играчка",1],["СУНЦЕ","природа",1],["ХЛЕБ","храна",1],["РИБА","животиња",1],["ВОДА","пиће",1],["МЛЕКО","пиће",1],["ШКОЛА","место",1],["КЊИГА","предмет",1],["СТО","намештај",1],["ЈАБУКА","воће",1],["ЦВЕТ","биљка",1],["МЕСЕЦ","небо",1],["ВОЗ","превоз",1],["ОЛОВКА","прибор",1],["ЗЕЦ","животиња",1],["КИША","време",1],["СИР","храна",1],
+  ["ПРОЗОР","кућа",2],["ЖИРАФА","животиња",2],["БИЦИКЛ","превоз",2],["ЛИМУН","воће",2],["ПИЈАЦА","место",2],["ЧОКОЛАДА","слаткиш",2],["КОШАРКА","спорт",2],["ЈЕСЕН","годишње доба",2],["ПЛАНИНА","природа",2],["ТЕЛЕФОН","уређај",2],["КОРЊАЧА","животиња",2],["ЛЕПТИР","инсект",2],["ДУНАВ","река",2],["БЕОГРАД","град",2],["ПАПРИКА","поврће",2],["ФУДБАЛ","спорт",2],["ЋЕВАПИ","јело",2],["ГИТАРА","инструмент",2],["СЛАДОЛЕД","слаткиш",2],["ЛАСТА","птица",2],
+  ["ЖЕЛЕЗНИЦА","превоз",3],["ПОЗОРИШТЕ","култура",3],["УЧИТЕЉИЦА","занимање",3],["ЏЕМПЕР","одећа",3],["ЉУЉАШКА","игралиште",3],["КИШОБРАН","предмет",3],["ВОДЕНИЦА","село",3],["КУКУРУЗ","биљка",3],["ХАРМОНИКА","инструмент",3],["ОГЛЕДАЛО","предмет",3],["ПУТОВАЊЕ","одмор",3],["ЧУВАРКУЋА","биљка",3],["ТРОЛЕЈБУС","превоз",3],["ШАРГАРЕПА","поврће",3],["ЛУБЕНИЦА","воће",3],["ДИМЊАК","кућа",3],["ФРИЖИДЕР","кухиња",3],["ВЕВЕРИЦА","животиња",3],["ПАЛАЧИНКА","слаткиш",3],["ЗВЕЗДАРНИЦА","наука",3],
+  ["ЋУПРИЈА","старинска реч",4],["ЏЕЗВА","кухиња",4],["ЂУВЕЧ","јело",4],["ЂЕВРЕК","пекара",4],["ЋИРИЛИЦА","писмо",4],["ЉУБИЧИЦА","цвет",4],["ЊУШКА","животиња",4],["ХАЈДУК","историја",4],["ЂЕРАМ","село",4],["КАЛДРМА","улица",4],["ЧАРШИЈА","град",4],["ЋЕРАМИДА","кров",4],["ЧАКШИРЕ","народна ношња",4],["ПЕНЏЕР","старинска реч",4],["ШЕДРВАН","чесма",4],["ЈОРГАН","постељина",4],["СОКАК","улица",4],["ФЕЊЕР","светло",4],["ЋУК","птица",4],["ЂУРЂЕВАК","цвет",4],
+  ["ИДИОСИНКРАЗИЈА","учена реч",5],["АМБИВАЛЕНЦИЈА","осећање",5],["ПРОКРАСТИНАЦИЈА","навика",5],["ЕПИСТЕМОЛОГИЈА","филозофија",5],["ПАЛИНДРОМ","језик",5],["ХИПОХОНДАР","особа",5],["КАЛЕИДОСКОП","играчка",5],["ПАРАФРАЗА","језик",5],["КОНТРАПУНКТ","музика",5],["ЕЛОКВЕНЦИЈА","говор",5],["ОКСИМОРОН","стилска фигура",5],["ФАТАМОРГАНА","пустиња",5],["ХЕРМЕНЕУТИКА","филозофија",5],["ЕУФЕМИЗАМ","језик",5],["АРХИПЕЛАГ","географија",5],["СИНЕСТЕЗИЈА","чула",5],["МЕТЕМПСИХОЗА","веровање",5],["ПРЕСТИДИГИТАТОР","занимање",5],["ТРАНСЦЕНДЕНЦИЈА","филозофија",5],["ЋИЋИБАБА","инсект",5],
+].map(([word, cat, level]) => ({word, cat, level}));
+let WORDS = DEFAULT_WORDS;
+let fromDb = false;
+
+const LATIN = {a:"А",b:"Б",v:"В",g:"Г",d:"Д","đ":"Ђ",e:"Е","ž":"Ж",z:"З",i:"И",j:"Ј",k:"К",l:"Л",q:"Љ",m:"М",n:"Н",w:"Њ",
+  o:"О",p:"П",r:"Р",s:"С",t:"Т","ć":"Ћ",u:"У",f:"Ф",h:"Х",c:"Ц","č":"Ч",x:"Џ","š":"Ш"};
+
+const $ = id => document.getElementById(id);
+const parts = [...document.querySelectorAll(".part")];
+parts.forEach(p => p.style.setProperty("--len", Math.ceil(p.getTotalLength ? p.getTotalLength() : 300)));
+
+let level = 1, word = "", cat = "", guessed = new Set(), misses = 0, over = false;
+let stats = {win:0, lose:0, streak:0};
+const lastIdx = {};
+
+try {
+  const s = JSON.parse(localStorage.getItem("vesala-stats") || "null");
+  if (s) stats = Object.assign(stats, s);
+  const l = +localStorage.getItem("vesala-level");
+  if (LEVELS[l]) level = l;
+} catch (e) {}
+function save(){
+  try {
+    localStorage.setItem("vesala-stats", JSON.stringify(stats));
+    localStorage.setItem("vesala-level", String(level));
+  } catch (e) {}
+}
+
+// Нивои
+const lvWrap = document.querySelector(".levels");
+for (const n of [1,2,3,4,5]) {
+  const b = document.createElement("button");
+  b.className = "lvl"; b.id = "lvl" + n;
+  b.innerHTML = `<span class="n">${n}</span><span class="t">${LEVELS[n].name}</span>`;
+  b.onclick = () => { level = n; save(); newGame(); };
+  lvWrap.appendChild(b);
+}
+
+// Тастатура
+const keyEls = {};
+for (const ch of ALPHABET) {
+  const b = document.createElement("button");
+  b.className = "key"; b.textContent = ch; b.id = "k-" + ch;
+  b.onclick = () => guess(ch);
+  $("keys").appendChild(b);
+  keyEls[ch] = b;
+}
+
+function letters(){ return [...word].filter(c => ALPHABET.includes(c)); }
+function lives(){ return LEVELS[level].lives; }
+function pre(){ return 10 - lives(); }
+
+function newGame(){
+  const list = WORDS.filter(w => w.level === level);
+  if (!list.length) { word = ""; cat = "нема речи"; guessed = new Set(); misses = 0; over = true; $("msg").textContent = "На овом нивоу још нема речи. Додај их у админу."; $("msg").className = "msg"; render(); return; }
+  let i;
+  do { i = Math.floor(Math.random() * list.length); } while (list.length > 1 && i === lastIdx[level]);
+  lastIdx[level] = i;
+  ({word, cat} = list[i]);
+  guessed = new Set(); misses = 0; over = false;
+  for (const ch of ALPHABET) { const k = keyEls[ch]; k.disabled = false; k.className = "key"; }
+  $("msg").textContent = ""; $("msg").className = "msg";
+  $("reveal").disabled = false;
+  for (let n = 1; n <= 5; n++) $("lvl" + n).setAttribute("aria-pressed", n === level);
+  render();
+}
+
+function render(){
+  const w = $("word"); w.innerHTML = "";
+  w.style.fontSize = `min(2.8rem, calc((min(100vw, 860px) - ${innerWidth > 620 ? 380 : 110}px) / ${word.length * 1.55}))`;
+  for (const c of word) {
+    const s = document.createElement("span");
+    if (!ALPHABET.includes(c)) { s.className = "slot"; s.style.borderBottom = "0"; s.textContent = c; }
+    else {
+      s.className = "slot";
+      if (guessed.has(c)) s.textContent = c;
+      else if (over) { s.textContent = c; s.classList.add("missed"); }
+      else s.textContent = " ";
+    }
+    w.appendChild(s);
+  }
+  $("cat").textContent = cat;
+  const n = letters().length;
+  $("len").textContent = n + (n % 10 === 1 && n % 100 !== 11 ? " слово" : " слова");
+  $("errs").textContent = misses; $("max").textContent = lives();
+  $("wrong").textContent = [...guessed].filter(c => !word.includes(c)).join(" ");
+  const lost = over && misses >= lives();
+  parts.forEach((p, i) => {
+    const isPre = i < pre();
+    p.classList.toggle("pre", isPre && !lost);
+    p.classList.toggle("solid", isPre && lost);
+    p.classList.toggle("on", !isPre && i < pre() + misses);
+  });
+  $("sWin").textContent = stats.win; $("sLose").textContent = stats.lose; $("sStreak").textContent = stats.streak;
+}
+
+function guess(ch){
+  if (over || guessed.has(ch)) return;
+  guessed.add(ch);
+  const k = keyEls[ch]; k.disabled = true;
+  if (word.includes(ch)) k.classList.add("hit");
+  else { k.classList.add("miss"); misses++; }
+  if (letters().every(c => guessed.has(c))) end(true);
+  else if (misses >= lives()) end(false);
+  render();
+}
+
+function end(won, gaveUp){
+  over = true;
+  for (const ch of ALPHABET) { const k = keyEls[ch]; k.disabled = true; if (!k.classList.contains("hit") && !k.classList.contains("miss")) k.classList.add("idle"); }
+  $("reveal").disabled = true;
+  const m = $("msg");
+  if (won) {
+    stats.win++; stats.streak++;
+    m.textContent = misses === 0 ? "Без иједне грешке, браво!" : "Погођено, браво!";
+    m.className = "msg win";
+  } else {
+    stats.lose++; stats.streak = 0;
+    m.textContent = gaveUp ? "Реч је била: " + word : "Обешен! Реч је била: " + word;
+    m.className = "msg lose";
+  }
+  save();
+}
+
+$("next").onclick = newGame;
+$("reveal").onclick = () => { if (!over) { end(false, true); render(); } };
+
+document.addEventListener("keydown", e => {
+  if ($("gameView").hidden || (e.target.closest && e.target.closest("input,select,textarea,button.tab"))) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "Enter" && over) { e.preventDefault(); newGame(); return; }
+  let k = e.key.length === 1 ? e.key.toUpperCase() : "";
+  if (!ALPHABET.includes(k)) k = LATIN[e.key.toLowerCase()] || "";
+  if (k) { e.preventDefault(); guess(k); }
+});
+
+newGame();
+
+// ---------- Картице ----------
+function showTab(admin){
+  $("gameView").hidden = admin; $("adminView").hidden = !admin;
+  $("tabGame").setAttribute("aria-selected", !admin); $("tabAdmin").setAttribute("aria-selected", admin);
+  if (admin) renderAdmin();
+}
+$("tabGame").onclick = () => { showTab(false); history.replaceState(null, "", location.pathname + location.search); };
+$("tabAdmin").onclick = () => { showTab(true); history.replaceState(null, "", "#admin"); };
+
+// ---------- Админ ----------
+let filterLevel = 0, canWrite = true, db = null;
+const fl = $("filters");
+for (const n of [0,1,2,3,4,5]) {
+  const b = document.createElement("button");
+  b.className = "chip"; b.id = "fl" + n; b.type = "button";
+  b.onclick = () => { filterLevel = n; renderAdmin(); };
+  fl.insertBefore(b, $("fSearch"));
+}
+$("fSearch").oninput = () => renderAdmin();
+
+const TRANS = {"lj":"љ","nj":"њ","dž":"џ","dj":"ђ"};
+function toCyr(t){
+  return t.replace(/lj|nj|dž|dj/gi, m => { const c = TRANS[m.toLowerCase()]; return m[0] === m[0].toUpperCase() ? c.toUpperCase() : c; })
+    .replace(/[a-zčćšžđ]/gi, ch => { const c = LATIN[ch.toLowerCase()]; if (!c || "qwxy".includes(ch.toLowerCase())) return ch; return ch === ch.toLowerCase() ? c.toLowerCase() : c; })
+    .replace(/лј|нј|дж/gi, m => { const c = {"лј":"љ","нј":"њ","дж":"џ"}[m.toLowerCase()]; return m[0] === m[0].toLowerCase() ? c : c.toUpperCase(); });
+}
+for (const id of ["fWord", "fCat", "fSearch"]) $(id).addEventListener("input", e => {
+  const el = e.target, v = toCyr(el.value);
+  if (v !== el.value) { const pos = el.selectionStart - (el.value.length - v.length); el.value = v; try { el.setSelectionRange(pos, pos); } catch (_) {} }
+});
+function norm(t){ return t.trim().toLocaleUpperCase("sr").replace(/\s+/g, " "); }
+
+function renderAdmin(){
+  const q = norm($("fSearch").value);
+  for (const n of [0,1,2,3,4,5]) {
+    const c = n ? WORDS.filter(w => w.level === n).length : WORDS.length;
+    const b = $("fl" + n);
+    b.textContent = (n ? n + " " + LEVELS[n].name : "Све") + " · " + c;
+    b.setAttribute("aria-pressed", filterLevel === n);
+  }
+  const list = WORDS
+    .filter(w => !filterLevel || w.level === filterLevel)
+    .filter(w => !q || w.word.includes(q) || w.cat.toLocaleUpperCase("sr").includes(q))
+    .sort((a, b) => a.level - b.level || a.word.localeCompare(b.word, "sr"));
+  $("total").textContent = "(" + WORDS.length + ")";
+  const tb = $("rows"); tb.innerHTML = "";
+  for (const w of list) {
+    const tr = document.createElement("tr");
+    const n = [...w.word].filter(c => ALPHABET.includes(c)).length;
+    tr.innerHTML = `<td class="w"></td><td></td><td class="n">${w.level}</td><td class="n">${n}</td><td></td>`;
+    tr.children[0].textContent = w.word; tr.children[1].textContent = w.cat;
+    if (fromDb && canWrite && w.id) {
+      const d = document.createElement("button");
+      d.className = "del"; d.type = "button"; d.textContent = "Обриши";
+      d.onclick = async () => {
+        if (!d.classList.contains("confirm")) { d.classList.add("confirm"); d.textContent = "Сигурно?"; return; }
+        d.disabled = true;
+        try { await db.collection("words").doc(w.id).delete(); }
+        catch (e) { d.disabled = false; d.textContent = "Грешка"; }
+      };
+      tr.children[4].appendChild(d);
+    }
+    tb.appendChild(tr);
+  }
+  if (!list.length) tb.innerHTML = '<tr><td colspan="5" class="src">Нема речи за овај избор.</td></tr>';
+  $("srcNote").textContent = fromDb ? "" : "Приказан је почетни списак. Чување нових речи ради када је страница отворена на claude.ai.";
+}
+
+$("addForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const m = $("fMsg");
+  const word = norm($("fWord").value), cat = $("fCat").value.trim().toLocaleLowerCase("sr"), lvl = +$("fLevel").value;
+  const bad = [...word].filter(c => !ALPHABET.includes(c) && c !== " " && c !== "-");
+  if (!word || [...word].filter(c => ALPHABET.includes(c)).length < 2) { m.textContent = "Унеси реч од бар два слова."; m.className = "formmsg err"; return; }
+  if (bad.length) { m.textContent = "Реч сме да садржи само слова ћирилице (нашло се: " + [...new Set(bad)].join(" ") + ")."; m.className = "formmsg err"; return; }
+  if (!cat) { m.textContent = "Упиши појам, то је наговештај у игри."; m.className = "formmsg err"; return; }
+  const dup = WORDS.find(w => w.word === word);
+  if (dup) { m.textContent = word + " већ постоји на нивоу " + dup.level + "."; m.className = "formmsg err"; return; }
+  if (!db) { m.textContent = "Чување није доступно у овом прегледу."; m.className = "formmsg err"; return; }
+  $("fAdd").disabled = true;
+  try {
+    await db.collection("words").add({word, cat, level: lvl, added: new Date().toISOString()});
+    m.textContent = "Додато: " + word + " (ниво " + lvl + ")."; m.className = "formmsg ok";
+    $("fWord").value = ""; $("fWord").focus();
+  } catch (err) {
+    m.textContent = err && err.code === "quota_exceeded" ? "База је пуна, обриши неке речи." : "Реч није сачувана. Можда немаш право уређивања ове игре.";
+    m.className = "formmsg err";
+  }
+  $("fAdd").disabled = false;
+});
+
+if (location.hash === "#admin") showTab(true);
+
+(async () => {
+  db = window.claude ? await window.claude.use("db").catch(() => null) : null;
+  if (!db) { renderAdmin(); return; }
+  const user = await window.claude.use("user").catch(() => null);
+  const cw = user ? user.canEdit() : null;
+  if (cw === false) { canWrite = false; $("addPanel").hidden = true; }
+  db.collection("words").limit(1000).onSnapshot(snap => {
+    if (snap.empty) { fromDb = false; WORDS = DEFAULT_WORDS; }
+    else {
+      fromDb = true;
+      WORDS = snap.docs.map(d => { const x = d.data(); return {id: d.id, word: String(x.word || ""), cat: String(x.cat || ""), level: +x.level || 1}; })
+        .filter(w => w.word);
+    }
+    if (!$("adminView").hidden) renderAdmin();
+    if (!word || !WORDS.some(w => w.word === word)) { if (!guessed.size) newGame(); }
+  }, () => {});
+})();
+</script>
+</body>
+</html>
